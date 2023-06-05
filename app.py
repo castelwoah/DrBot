@@ -1,6 +1,9 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, session, url_for
+# from flask_socketio import SocketIO, emit
 import openai
-# import time
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin
+
 
 # DB 초기화
 from pymongo import MongoClient
@@ -11,8 +14,9 @@ client = MongoClient('mongodb+srv://amollang97:VJdEb3wQs7SUwiUq@cluster0.kynn6ln
 db = client.chatbot
 
 
+
 # Set up OpenAI API credentials
-openai.api_key = "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"
+openai.api_key = "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"
 
 # Set up the model name
 model_engine = "gpt-3.5-turbo"
@@ -28,39 +32,157 @@ Non-medical questions could be answered, but you should recommend that you can a
 """
 
 # messages 변수 초기화
-messages = [{"role" : "system", "content" : f"{ai_doctor_persona}"}]
+messages = [{"role": "system", "content": f"{ai_doctor_persona}"}]
 
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret_key'
+bcrypt = Bcrypt(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
-# welcome message
-# @app.route("/")
-# def welcomeMessage():
-#     welcome = '안녕하세요, Dr.Bot입니다. 의료 치료에 대한 권장 사항을 제공하는 것을 포함하여 다양한 작업을 수행할 수 있습니다. 저는 물리적인 몸이나 의료 학위를 가지고 있지 않지만, 연구와 일반적인 의료 관행을 기반으로 정보를 제공할 수 있습니다. 제가 제공하는 권장 사항은 면허를 받은 의료 전문가의 조언을 대체해서는 안 됩니다.'
-#     return welcome
 
 # 파일 불러오기(ex: index.html)
 @app.route("/")
 def home():
+    """홈 화면 출력"""
+    print("home")
+    return render_template('login.html')
+
+
+# 사용자 모델 정의
+class User(UserMixin):
+    def __init__(self, id, username, password):
+        self.id = id
+        self.username = username
+        self.password = password
+
+users = []
+
+@login_manager.user_loader
+def load_user(username):
+    # MongoDB에서 사용자 정보 가져오기
+    user_data = db.users.find_one({'username': username})
+    if user_data:
+        user = User(user_data['_id'], username, user_data['password'])
+        return user
+    return None
+
+
+# @app.route('/')
+# def home():
+#     return 'Welcome to the Home Page'
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        # 사용자 인증
+        user_data = db.users.find_one({'username': username})
+        if user_data and bcrypt.check_password_hash(user_data['password'], password):
+            user = User(user_data['_id'], user_data['username'], user_data['password'])
+            login_user(user)
+            users.append(username)
+            return redirect(url_for('chat'))
+
+        return 'Invalid username or password'
+
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        # 비밀번호 해싱
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        # 사용자 정보 DB에 저장
+        user_data = {'username': username, 'password': hashed_password}
+        db.users.insert_one(user_data)
+
+
+        return redirect(url_for('login'))
+
+    return render_template('signup.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('home'))
+
+# @app.route('/chat')
+# @login_required
+# def chat():
+#     return 'Welcome to the Chat Page'
+
+
+
+
+
+
+# 대화 기록 출력부
+@app.route("/hist", methods=["GET"])
+def chatbot_hist():
+    username = users[-1]
+    hist = list(db[username].hist.find({}, {'_id': False}))
+
+    for i in hist:
+        messages.append(i)
+
+    print("history api activated")
+
+    return jsonify({"history": hist})
+
+
+# 채팅 실행부
+@app.route('/chat', methods=['GET', 'POST'])
+def chat():
+    """json 형식으로 "question"으로 사용자 입력값을 받아온다.
+    DrBot/chatbot/hist DB 경로에 저장한다.
+    answer변수에 답변을 저장하고 "answer"키로 값을 전달한다."""
+
+    # DB에 저장된 기록 가져오기
+    # username = request.form['username']
+    username = users[-1]
+    print("사용자:", username)
+    if request.method == 'POST':
+        question = request.form['question']
+
+        print("질문: ", question)
+
+        messages.append({"role": "user", "content": f"{question}"})
+
+        # 사용자 입력 저장
+        doc = {
+            "role": "user",
+            "content": f"{question}"
+        }
+        db[username].hist.insert_one(doc)
+
+        answer = get_response(messages)
+        print("답변: ", answer)
+        messages.append({"role": "assistant", "content": f"{answer}"})
+
+        # 답변 저장
+        doc = {
+            "role": "assistant",
+            "content": f"{answer}"
+        }
+        db[username].hist.insert_one(doc)
+
+        return jsonify({'answer': answer})
+
     return render_template('index.html')
-
-
-
-@app.route('/answer', methods=['POST'])
-def get_answer():
-    question = request.form['question']
-
-    messages.append({"role": "user", "content": f"{question}"})
-    answer = get_response(messages)
-
-    db.test.insert_one(messages[len(messages)-1])
-    messages.append({"role": "assistant", "content": f"{answer}"})
-    db.test.insert_one(messages[len(messages)-1])
-
-    return jsonify({'answer': answer})
 
 # completion 제작 및 반환
 def get_response(messages):
+    """사용자 입력을 매개변수로 받아 답변을 생성한다.
+    return type: string"""
+    print("함수호출까지 완료")
     response = openai.ChatCompletion.create(
         model=model_engine,
         messages=messages,
@@ -70,64 +192,7 @@ def get_response(messages):
         temperature=0.0,
         top_p=1.0
     )
-
-    return response.choices[0].message["content"].strip()
-
-
-# 대화 기록 출력부
-@app.route("/chatbot/hist", methods=["POST"])
-def chatbot_hist_get():
-    hist = list(db.test.find({}, {'_id': False}))
-
-    return jsonify({"history": hist})
-
-
-
-
-
-
-# # 회원가입
-# @app.route("/signin")
-# def signin():
-#     # 이름, 아이디, 비밀번호 받기
-#     name_receive = request.form['name_give']
-#     id_receive = request.form['id_give']
-#     pwd_receive = request.form['pwd_give']
-#
-#     # DB에 저장
-#     doc = {
-#         'name' : name_receive,
-#         'id' : id_receive,
-#         'pwd' : pwd_receive
-#     }
-#     db.user.insert_one(doc)
-#
-#     return jsonify({'msg': '회원가입 완료'})
-
-
-
-# # 회원가입
-# @app.route('/register', methods=['POST'])
-# def api_register():
-#     id_receive = request.form['id_give']
-#     pw_receive = request.form['pw_give']
-#     name_receive = request.form['name_give']
-#
-#     db.user.insert_one({'id': id_receive, 'pw': pw_receive, 'name': name_receive})
-#
-#     return jsonify({'result': 'success'})
-
-
-
-
-# # 로그인
-# @app.route("/login")
-# def login():
-#     pass
-
-
-
-
+    return response['choices'][0]['message']['content']
 
 
 

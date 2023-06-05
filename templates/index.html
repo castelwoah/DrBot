@@ -41,19 +41,31 @@
             cursor: pointer;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Dr.Bot</h1>
-        <div id="chat-container"></div>
-        <div>
-            <input type="text" id="user-input" class="user-input" placeholder="질문을 입력하세요..." onkeydown="handleKeyPress(event)">
-            <button onclick="sendQuestion()" class="submit-btn">전송</button>
-        </div>
-    </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
     <script>
+        $(document).ready(function () {
+            show_hist();
+        });
+        function show_hist() {
+            $.ajax({
+                method: 'GET',
+                url: '/hist',
+                data: {},
+                success: function (response) {
+                    let rows = response['history']
+                    for (let i = 0; i < rows.length; i++) {
+                        if (rows[i]['role'] == 'user') {
+                            addQuestion(rows[i]['content'])
+                        } else if (rows[i]['role'] == 'assistant'){
+                            addAnswer(rows[i]['content'])
+                        }
+                    }
+                }
+            });
+        }
+
+        // 엔터키 이벤트리슨 함수
         function handleKeyPress(event) {
             if (event.keyCode == 13) {
                 sendQuestion();
@@ -61,9 +73,10 @@
             }
         }
 
+        // api에 사용자 입력 전송
         function sendQuestion() {
-            var questionInput = $("#user-input");
-            var question = questionInput.val().trim();
+            let questionInput = $("#user-input");
+            let question = questionInput.val().trim(); //trim() = 공백제거
             if (question != "") {
                 addQuestion(question);
                 getAnswer(question);
@@ -71,26 +84,30 @@
             questionInput.val("");
         }
 
+        // 질문 div 추가
         function addQuestion(question) {
-            var chatContainer = $("#chat-container");
-            var questionDiv = $("<div>").addClass("question").text(question);
+            let chatContainer = $("#chat-container");
+            let questionDiv = $("<div>").addClass("question").text(question);
             chatContainer.append(questionDiv);
         }
 
+        // 답변 div 추가
         function addAnswer(answer) {
-            var chatContainer = $("#chat-container");
-            var answerDiv = $("<div>").addClass("answer").text(answer);
+            let chatContainer = $("#chat-container");
+            let answerDiv = $("<div>").addClass("answer").text(answer);
             chatContainer.append(answerDiv);
         }
 
+
+        // 답변 api에서 받아오기
         function getAnswer(question) {
 
             $.ajax({
-                url: "/answer",
+                url: "/chat",
                 method: "POST",
                 data: {question: question },
                 success: function(response) {
-                    addAnswer(response['answer']);
+                    addAnswer(response.answer)
                 },
                 error: function() {
                     addAnswer("답변을 불러오는 도중 오류가 발생했습니다.");
@@ -98,5 +115,22 @@
             });
         }
     </script>
+
+</head>
+<body>
+    <div class="container">
+        <h1>Dr.Bot</h1>
+        <h3>의학 정보 제공 챗봇입니다</h3>
+<!--        <form>-->
+<!--            <input id="user-name" class="user-name" placeholder="이름을 입력하세요..." required>-->
+<!--            <button onclick="sendQuestion()" class="submit-btn">입력</button>-->
+<!--        </form>-->
+        <div id="chat-container"></div>
+        <div>
+            <input type="text" id="user-input" class="user-input" placeholder="질문을 입력하세요..." onkeydown="handleKeyPress(event)" />
+            <button onclick="sendQuestion()" class="submit-btn">전송</button>
+        </div>
+    </div>
+
 </body>
 </html>
