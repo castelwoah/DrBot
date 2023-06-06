@@ -1,4 +1,4 @@
-# Dr.Bot
+# [Dr.Bot](drbot.online)
 ## 소개
 - 의학정보 제공 챗봇 제작 프로젝트
 
@@ -21,7 +21,10 @@
 | 대안마련 | 사용자가알고자 하는 증상의 원인을 간단한 채팅채팅(키워드키워드)로 파악할 수 있으며 높은신뢰성을 제공하며 시간이 없는 사람들은 병원에 가지 않고도 어느정도 자신의 문제를파악하여 증상을 완화시킬 수 있다있다. |
 
 ### 주요기능
-- 
+- 회원가입
+- 로그인
+- 채팅
+- 대화내용 록기록
 
 ---
 
@@ -41,15 +44,18 @@
 발급 받은 api key는 절대로 다른 사람과 공유하면 안되며 API 키가 실수로 프로그램 코드를 통해서 노출되지 않도록 각별히 주의가 필요합니다.  
   
 # 
-- test/View/ChatViewController.swift 코드에 api key를 입력한다.
+- app.py 파일에 api key를 입력한다.
 
+```c
+# Set up OpenAI API credentials
+openai.api_key = "<Your API key>"
 ```
-    private var messages: [MessageType] = []
-    private let apiKey = "<Your API key>"
-    private let botSender = Sender(senderId: "bot_id", displayName: "Bot")
-    private let openAI = OpenAISwift(authToken: "<Your API key>")
-```
-  
+---
+
+2. 몽고DB atlas 연결
+
+
+
 --- 
 
 ## 프로젝트 시연
