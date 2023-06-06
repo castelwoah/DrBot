@@ -59,8 +59,13 @@ openai.api_key = "<Your API key>"
 --- 
 
 ## 프로젝트 시연
-0. 실행시 첫 화면
-<img src = "static/images/DrBot_firstpage.png">
+
+1. 홈화면 (로그인)
+2. 회원가입
+3. 채팅 실행화면 
+
+
+
 
 1. 회원가입
 
