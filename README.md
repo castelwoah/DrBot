@@ -95,5 +95,4 @@ This project is licensed under the terms of the MIT license.
 
 ## 참고
 ### [OpenAI API reference](https://platform.openai.com/docs/api-reference)
-### [OpenAISwift](https://github.com/adamrushy/OpenAISwift)
 
